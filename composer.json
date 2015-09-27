@@ -1,0 +1,25 @@
+{
+    "name": "valentin/external_css",
+    "type": "contao-module",
+    "description": "Contao Open Source CMS extension external_css",
+    "keywords": ["contao", "external css"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name":"Valentin Sampl",
+            "email":"valentin.sampl@gmail.com",
+            "role":"Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.7",
+        "contao/core": ">=3.5,<4"
+    },
+    "extra": {
+        "contao": {
+            "sources": {
+                "": "system/modules/external_css"
+            }
+        }
+    }
+}
