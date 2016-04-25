@@ -96,10 +96,47 @@ class Hooks extends \Controller {
 		}
 
 		$arrFiles = $tmpFiles;
+		
 		$file = \Less_Cache::Get($arrFiles, $options, $variables);
 
 		if(!$file) {
 			return;
+		}
+
+		if($_COOKIE['BE_USER_AUTH']) {
+			$DB = \Database::getInstance();
+			$Session = $DB->prepare('SELECT pid FROM tl_session WHERE name="BE_USER_AUTH" AND hash=?')->limit(1)->execute($_COOKIE['BE_USER_AUTH']);
+			$User = \Database::getInstance()->prepare('SELECT external_css_livereload FROM tl_user WHERE id=?')->execute($Session->pid)->fetchAssoc();
+
+			if($User['external_css_livereload']) {
+
+				$reload = false;
+
+				$filePath = $lessFolder.'/livereload.css';
+				$strCss = file_get_contents($lessFolder.'/'.$file);
+				$strOldCss = file_get_contents($filePath);
+
+				if($strCss != $strOldCss) {
+					$reload = true;
+					file_put_contents($filePath, $strCss);
+				}
+				
+				$filemtime = filemtime($filePath);
+				$fileSRC = '<link id="livereload" rel="stylesheet" href="'.$filePath.'?v='.$filemtime.'" />';
+
+				if(\Input::get('action') == 'getLiveCSS') {
+					echo json_encode(array(
+						'reload' => $reload,
+						'file' => $fileSRC
+					));
+					die;
+				}
+
+				$GLOBALS['TL_HEAD'][] = $fileSRC;
+				$GLOBALS['TL_JQUERY'][] = '<script src="system/modules/external_css/assets/j/livereload.js"></script>';
+				return;
+			}
+
 		}
 
 		$filePath = $lessFolder.'/'.$file;
@@ -112,7 +149,7 @@ class Hooks extends \Controller {
 		}
 
 		$embedFile = str_replace('.css', '_embed.css', $filePath);
-
+		
 		if(!is_file($embedFile)) {
 
 			$arrParsed = array();
@@ -150,12 +187,8 @@ class Hooks extends \Controller {
 			file_put_contents($embedFile, $strCss);
 
 		}
-
 		$filePath = $embedFile;
-
-
 		$GLOBALS['TL_HEAD'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($filePath), '', false);
-
 
 	}
 
