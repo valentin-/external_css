@@ -129,8 +129,10 @@ class Hooks extends \Controller {
 							file_put_contents($path, $css);
 							$reloadFile = true;
 						}
+					} else {
+						file_put_contents($path, $css);
 					}
-					
+
 					$filetime = filemtime($path);
 					$fileClass = 'external_css_'.standardize($filename);
 
