@@ -97,46 +97,76 @@ class Hooks extends \Controller {
 
 		$arrFiles = $tmpFiles;
 		
-		$file = \Less_Cache::Get($arrFiles, $options, $variables);
 
-		if(!$file) {
-			return;
-		}
 
 		if($_COOKIE['BE_USER_AUTH']) {
+			
 			$DB = \Database::getInstance();
 			$Session = $DB->prepare('SELECT pid FROM tl_session WHERE name="BE_USER_AUTH" AND hash=?')->limit(1)->execute($_COOKIE['BE_USER_AUTH']);
 			$User = \Database::getInstance()->prepare('SELECT external_css_livereload FROM tl_user WHERE id=?')->execute($Session->pid)->fetchAssoc();
 
 			if($User['external_css_livereload']) {
+				
+				$arrParsed = array();
+				$strFiles = '';
+				$strAjaxFiles = array();
 
-				$reload = false;
+				foreach($arrFiles as $file => $path) {
 
-				$filePath = $lessFolder.'/livereload.css';
-				$strCss = file_get_contents($lessFolder.'/'.$file);
-				$strOldCss = file_get_contents($filePath);
+					$reloadFile = false;
+					$parser = new \Less_Parser();
+					$parser->parseFile( $file, $path);
+					$css = $parser->getCss();
 
-				if($strCss != $strOldCss) {
-					$reload = true;
-					file_put_contents($filePath, $strCss);
+					$filename = str_replace('.less', '.css', basename($file));
+					$path = $lessFolder.'/'.$filename;
+
+					$oldCss = '';
+					if(is_file($path)) {
+						$oldCss = file_get_contents($path);
+
+						if($oldCss != $css) {
+							file_put_contents($path, $css);
+							$reloadFile = true;
+						}
+					}
+					
+					$filetime = filemtime($path);
+					$fileClass = 'external_css_'.standardize($filename);
+
+					$fileSRC = '<link class="'.$fileClass.'" rel="stylesheet" href="'.$path.'?v='.$filetime.'" />';
+					$strFiles .= $fileSRC;
+
+					if($reloadFile) {
+						$strAjaxFiles[] = array(
+							'class' => $fileClass,
+							'src' => $fileSRC,
+							'path' => $path.'?v='.$filetime
+						);
+					}
+
 				}
 				
-				$filemtime = filemtime($filePath);
-				$fileSRC = '<link id="livereload" rel="stylesheet" href="'.$filePath.'?v='.$filemtime.'" />';
-
 				if(\Input::get('action') == 'getLiveCSS') {
 					echo json_encode(array(
-						'reload' => $reload,
-						'file' => $fileSRC
+						'files' => $strAjaxFiles
 					));
 					die;
 				}
 
-				$GLOBALS['TL_HEAD'][] = $fileSRC;
+				$GLOBALS['TL_HEAD'][] = $strFiles;
 				$GLOBALS['TL_JQUERY'][] = '<script src="system/modules/external_css/assets/j/livereload.js"></script>';
+
 				return;
+
 			}
 
+		}
+
+		$file = \Less_Cache::Get($arrFiles, $options, $variables);
+
+		if(!$file) {
+			return;
 		}
 
 		$filePath = $lessFolder.'/'.$file;

@@ -13,13 +13,16 @@ jQuery(function($){
                 action: 'getLiveCSS'
             }
         }).done(function (data) {
-
-            if(data['reload']) {
-                $('head').append(data['file']);
-
-                setTimeout(function(){
-                    $cssFile.remove();
-                }, 200)
+            
+            if(data['files']) {
+                $.each(data['files'], function(c, file){
+                    var file = file;
+                    $oldFile = $('head link.'+file['class']);
+                    jQuery.get(file['path'], function(data) {
+                        $oldFile.remove();
+                        $('head').append(file['src']);
+                    });
+                })
             }
         })
 
