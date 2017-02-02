@@ -2,226 +2,141 @@
 
 namespace ExternalCSS;
 
+use Contao\Input;
+use Contao\LayoutModel;
+
 class Hooks extends \Controller {
 
-	public function generateCSS(\PageModel $objPage, \LayoutModel $objLayout, \PageRegular $objPageRegular) {
+    public function addCssFiles($strBuffer, $strTemplate)
+    {
 
-		$db = \Database::getInstance();
+        global $objPage;
+        $objLayout = LayoutModel::findByPk($objPage->layout);
+        $db = \Database::getInstance();
 
-		$lessFolder = 'assets/css';
+        $arrFiles = array();
+        $arrAtf = array();
+        $hasAtf = false;
 
-		$options = array(
-			'compress'=>true,
-			'cache_dir' => TL_ROOT.'/'.$lessFolder
-		);
+        $tmpFolder = 'assets/css';
 
-		$objFiles = unserialize($objLayout->external_css);
+        $options = array(
+            'compress'=>true,
+            'cache_dir' => TL_ROOT.'/'.$tmpFolder
+        );
 
-		if(!$objFiles || !is_array($objFiles)) {
-			return;
-		} 
+        $objFiles = unserialize($objLayout->external_css);
 
-		$objFiles = $db->query("SELECT * FROM tl_external_css WHERE id IN(".implode(',', $objFiles).") ORDER BY sorting")->fetchAllAssoc();
-		$arrFiles = array();
+        if(!$objFiles || !is_array($objFiles)) {
+            return;
+        }
 
-		if($objFiles) {
-			foreach ($objFiles as $file) {
-				
-				if($file['type'] == 'url' && $file['url']) {
-					$GLOBALS['TL_HEAD'][] = \Template::generateStyleTag($file['url'], '', false);
-				}
-
-				if($file['type'] == 'file') {
-					$obj = \FilesModel::findByUuid($file['file']);
-
-					if($obj) {
-						$arrFiles[] = $obj->path;
-					} else {
-						if(is_file($file['file']))  {
-							$arrFiles[] = $file['file'];
-						}
-					}
-				}
-
-			}
-		}
-
-		if (isset($GLOBALS['TL_HOOKS']['addExternalCssFiles']) && is_array($GLOBALS['TL_HOOKS']['addExternalCssFiles']))
-		{
-			foreach ($GLOBALS['TL_HOOKS']['addExternalCssFiles'] as $callback)
-			{
-				$this->import($callback[0]);
-				$arrFiles = $this->$callback[0]->$callback[1]($arrFiles);
-			}
-		}
+        $objFiles = $db->query("SELECT * FROM tl_external_css WHERE id IN(".implode(',', $objFiles).") ORDER BY sorting")->fetchAllAssoc();
 
 
-		if($arrFiles) {
-			$tmpFiles = array();
-			foreach ($arrFiles as $file) {
-				if(is_readable($file)) {
-					$tmpFiles[TL_ROOT.'/'.$file] = '/'.dirname($file);
-				}
-			}
-		} else {
-			return;
-		}
+        if($objFiles) {
+            foreach ($objFiles as $file) {
 
-		$variables = array();
-		$arrVars = array();
+                $filePath = '';
 
-		$objTheme = \ThemeModel::findByPk($objLayout->pid);
+                if($file['type'] == 'url' && $file['url']) {
+                    $GLOBALS['TL_HEAD'][] = \Template::generateStyleTag($file['url'], '', false);
+                }
 
-		if($objTheme->vars) {
-			$arrVars = deserialize($objTheme->vars);
+                if($file['type'] == 'file') {
+                    $obj = \FilesModel::findByUuid($file['file']);
 
-			foreach ($arrVars as $var) {
-				$k = preg_replace('/\$/', '@', $var['key'], 1);
+                    if($obj) {
+                        $filePath = $obj->path;
+                    } else {
+                        if(is_file($file['file']))  {
+                            $filePath = $file['file'];
+                        }
+                    }
+                }
 
-				if($k[0] != '@') {
-					$k = '@'.$k;
-				}
+                if($filePath) {
+                    if($file['atf']) {
+                        $hasAtf = true;
+                        $arrAtf[] = $filePath;
+                    } else {
+                        $arrFiles[] = $filePath;
+                    }
+                }
+            }
+        }
 
-				$variables[$k] = $var['value'];
-			}
-		}
-
-		if (isset($GLOBALS['TL_HOOKS']['addExternalCssVariables']) && is_array($GLOBALS['TL_HOOKS']['addExternalCssVariables']))
-		{
-			foreach ($GLOBALS['TL_HOOKS']['addExternalCssVariables'] as $callback)
-			{
-				$this->import($callback[0]);
-				$variables = $this->$callback[0]->$callback[1]($variables);
-			}
-		}
-
-		$arrFiles = $tmpFiles;
-		
+        if (isset($GLOBALS['TL_HOOKS']['addExternalCssFiles']) && is_array($GLOBALS['TL_HOOKS']['addExternalCssFiles']))
+        {
+            foreach ($GLOBALS['TL_HOOKS']['addExternalCssFiles'] as $callback)
+            {
+                $this->import($callback[0]);
+                $arrFiles = $this->$callback[0]->$callback[1]($arrFiles);
+            }
+        }
 
 
-		if($_COOKIE['BE_USER_AUTH']) {
-			
-			$DB = \Database::getInstance();
-			$Session = $DB->prepare('SELECT pid FROM tl_session WHERE name="BE_USER_AUTH" AND hash=?')->limit(1)->execute($_COOKIE['BE_USER_AUTH']);
-			$User = \Database::getInstance()->prepare('SELECT external_css_livereload FROM tl_user WHERE id=?')->execute($Session->pid)->fetchAssoc();
+        $variables = array();
+        $arrVars = array();
 
-			if($User['external_css_livereload']) {
-				
-				$arrParsed = array();
-				$strFiles = '';
-				$strAjaxFiles = array();
+        $objTheme = \ThemeModel::findByPk($objLayout->pid);
 
-				foreach($arrFiles as $file => $path) {
+        if($objTheme->vars) {
+            $arrVars = deserialize($objTheme->vars);
+            foreach ($arrVars as $var) {
+                $k = preg_replace('/\$/', '@', $var['key'], 1);
+                if($k[0] != '@') {
+                    $k = '@'.$k;
+                }
+                $variables[$k] = $var['value'];
+            }
+        }
 
-					$reloadFile = false;
-					$parser = new \Less_Parser();
-					$parser->parseFile( $file, $path);
-					$css = $parser->getCss();
+        if (isset($GLOBALS['TL_HOOKS']['addExternalCssVariables']) && is_array($GLOBALS['TL_HOOKS']['addExternalCssVariables']))
+        {
+            foreach ($GLOBALS['TL_HOOKS']['addExternalCssVariables'] as $callback)
+            {
+                $this->import($callback[0]);
+                $variables = $this->$callback[0]->$callback[1]($variables);
+            }
+        }
+        
 
-					$filename = str_replace('.less', '.css', basename($file));
-					$path = $lessFolder.'/'.$filename;
+        if($GLOBALS['TL_CSS'] && is_array($GLOBALS['TL_CSS'])) {
 
-					$oldCss = '';
-					if(is_file($path)) {
-						$oldCss = file_get_contents($path);
+            $arrFiles = array_merge($GLOBALS['TL_CSS'], $arrFiles);
+            unset($GLOBALS['TL_CSS']);
+        }
 
-						if($oldCss != $css) {
-							file_put_contents($path, $css);
-							$reloadFile = true;
-						}
-					} else {
-						file_put_contents($path, $css);
-					}
 
-					$filetime = filemtime($path);
-					$fileClass = 'external_css_'.standardize($filename);
+        $arrFiles = \ExternalCssHelper::extendFilesPath($arrFiles);
+        $arrAtf = \ExternalCssHelper::extendFilesPath($arrAtf);
 
-					$fileSRC = '<link class="'.$fileClass.'" rel="stylesheet" href="'.$path.'?v='.$filetime.'" />';
-					$strFiles .= $fileSRC;
+        $lessFile = \ExternalCssHelper::prepareFile($arrFiles, array(
+            'lessOptions' => $options,
+            'lessVariables' => $variables,
+            'tmpFolder' => $tmpFolder
+        ));
 
-					if($reloadFile) {
-						$strAjaxFiles[] = array(
-							'class' => $fileClass,
-							'src' => $fileSRC,
-							'path' => $path.'?v='.$filetime
-						);
-					}
+        $atfFile = \ExternalCssHelper::prepareFile($arrAtf, array(
+            'lessOptions' => $options,
+            'lessVariables' => $variables,
+            'tmpFolder' => $tmpFolder
+        ));
 
-				}
-				
-				if(\Input::get('action') == 'getLiveCSS') {
-					echo json_encode(array(
-						'files' => $strAjaxFiles
-					));
-					die;
-				}
+        if($hasAtf) {
+            $atfCss = file_get_contents($atfFile);
+            $GLOBALS['TL_HEAD'][] = '<style>'.$atfCss.'</style>';
+//            $GLOBALS['TL_HEAD'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($atfFile), '', false);
+            $GLOBALS['TL_BODY'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($lessFile), '', false);
+        } else {
+            $GLOBALS['TL_HEAD'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($lessFile), '', false);
+        }
 
-				$GLOBALS['TL_HEAD'][] = $strFiles;
-				$GLOBALS['TL_JQUERY'][] = '<script src="system/modules/external_css/assets/j/livereload.js"></script>';
 
-				return;
 
-			}
+        return $strBuffer;
 
-		}
-
-		$file = \Less_Cache::Get($arrFiles, $options, $variables);
-
-		if(!$file) {
-			return;
-		}
-
-		$filePath = $lessFolder.'/'.$file;
-
-		$imgs = array();
-		$strCss = file_get_contents($filePath);
-		$re = '/url\(\s*[\'"]?(\S*\.(?:jpe?g|gif|png))[\'"]?\s*\)[^;}]*?/i';
-		if (preg_match_all($re, $strCss, $matches)) {
-		    $imgs = $matches[1];
-		}
-
-		$embedFile = str_replace('.css', '_embed.css', $filePath);
-		
-		if(!is_file($embedFile)) {
-
-			$arrParsed = array();
-			$strCss = file_get_contents($filePath);
-
-			foreach ($imgs as $img) {
-				$imgPath = TL_ROOT.$img;
-
-				if(in_array($img, $arrParsed)) {
-					continue;
-				}
-
-				if(is_file($imgPath)) {
-
-					$size = filesize($imgPath);
-					$mb = $size / 1048576;
-
-					if($mb < 0.2) {
-
-						$ext = pathinfo($imgPath, PATHINFO_EXTENSION);
-
-						$b64 = file_get_contents($imgPath);
-						$b64 = base64_encode($b64);
-
-						$base64 = 'data:image/'.$ext.';base64,'.$b64;
-						$strCss = str_replace($img, $base64, $strCss);
-
-						$arrParsed[] = $img;
-
-					}
-
-				}
-			}
-
-			file_put_contents($embedFile, $strCss);
-
-		}
-		$filePath = $embedFile;
-		$GLOBALS['TL_HEAD'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($filePath), '', false);
-
-	}
+    }
 
 }
