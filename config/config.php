@@ -1,8 +1,7 @@
 <?php
 
 $GLOBALS['BE_MOD']['design']['themes']['tables'][] = 'tl_external_css';
-
-$GLOBALS['TL_HOOKS']['generatePage'][] = array('ExternalCSS\Hooks', 'generateCSS');
+$GLOBALS['TL_HOOKS']['outputFrontendTemplate'][] = array('ExternalCSS\Hooks', 'addCssFiles');
 
 $GLOBALS['TL_EASY_THEMES_MODULES']['external_css'] = array
 (
