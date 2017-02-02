@@ -86,7 +86,7 @@ $GLOBALS['TL_DCA']['tl_external_css'] = array
 	'palettes'        => array
 	(
 		'__selector__' => array('type'),
-		'default' => '{source_legend},type;{layouts_legend},layouts'
+		'default' => '{source_legend},type;{layouts_legend},layouts,atf'
 	),
 	'subpalettes' => array(
 		'type_file' => 'filesource,file',
@@ -173,6 +173,14 @@ $GLOBALS['TL_DCA']['tl_external_css'] = array
             'load_callback' => array(array('tl_external_css', 'loadLayouts')),
             'save_callback' => array(array('tl_external_css', 'saveLayouts')),
             'eval'      => array('multiple' => true, 'doNotSaveEmpty' => true),
+        ),
+        'atf' => array
+        (
+            'label'                   => &$GLOBALS['TL_LANG']['tl_external_css']['atf'],
+            'exclude'                 => true,
+            'inputType'               => 'checkbox',
+            'eval'                    => array(),
+            'sql'                     => "char(1) NOT NULL default ''"
         ),
 	)
 );
