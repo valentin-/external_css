@@ -93,7 +93,7 @@ class ExternalCssHelper {
 
         $embedFile = str_replace('.css', '_embed.css', $filePath);
 
-        if(!is_file($embedFile)) {
+        if(!is_readable($embedFile)) {
 
             $arrParsed = array();
             $strCss = file_get_contents($filePath);
