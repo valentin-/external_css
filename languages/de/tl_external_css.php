@@ -14,3 +14,4 @@ $GLOBALS['TL_LANG']['tl_external_css']['filesource'] = array('Quelle','Quelle au
 $GLOBALS['TL_LANG']['tl_external_css']['file'] = array('Datei','Datei auswählen');
 $GLOBALS['TL_LANG']['tl_external_css']['url'] = array('URL','URL eingeben');
 $GLOBALS['TL_LANG']['tl_external_css']['layouts'] = array('Layouts','Layouts auswählen');
+$GLOBALS['TL_LANG']['tl_external_css']['atf'] = array('Above the Fold','Gibt die ausgewählten Dateien im Header aus, andere Dateien am Seitenende');
