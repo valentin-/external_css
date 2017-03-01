@@ -120,16 +120,36 @@ class Hooks extends \Controller
                 $arrF[] = str_replace(TL_ROOT.'/', '', $k);
             }
 
-            foreach ($arrF as $file) {
-                
+            foreach ($arrF as $k => $file) {
+
                 $dir = dirname($file);
-                $filePath = $dir.'/css/'.basename($file);
+                $filename = basename($file);
+                $filePath = $dir.'/css/'.$filename;
                 $filePath = str_replace('.less', '.css', $filePath);
 
                 if(is_readable(TL_ROOT.'/'.$filePath)) {
                     $GLOBALS['TL_BODY'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($filePath), '', false);
                 } else {
-                    $GLOBALS['TL_BODY'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($file), '', false);
+
+                    if(strpos($filename, '.less') !== false) {
+
+                        $parser = new \Less_Parser();
+                        $parser->parseFile($file, $k);
+                        $css = $parser->getCss();
+
+                        if(!is_dir(TL_ROOT.'/'.$dir.'/css')) {
+                            mkdir(TL_ROOT.'/'.$dir.'/css', 0755, true);
+                        }
+
+                        file_put_contents(TL_ROOT.'/'.$filePath, $css);
+
+                        $GLOBALS['TL_BODY'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($filePath), '', false);
+
+
+                    } else {
+                        $GLOBALS['TL_BODY'][] = \Template::generateStyleTag(\Controller::addStaticUrlTo($file), '', false);
+                    }
+
                 }
             }
 
